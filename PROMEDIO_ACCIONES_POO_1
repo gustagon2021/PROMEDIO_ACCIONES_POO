@@ -1,0 +1,93 @@
+import yfinance as yf
+from datetime import datetime, timedelta
+from tabulate import tabulate
+
+class Accion:
+    def __init__(self, symbol):
+        self.symbol = symbol
+        self.data = None
+        self.precio_promedio_semana = None
+        self.precio_actual = None
+
+    def obtener_datos_diarios(self, start_date, end_date):
+        try:
+            self.data = yf.download(self.symbol, start=start_date, end=end_date)
+        except Exception as e:
+            print(f"Error al obtener datos para {self.symbol}: {e}")
+
+    def calcular_precio_promedio(self):
+        if self.data is not None and not self.data.empty:
+            self.precio_promedio_semana = self.data['Close'].mean()
+        else:
+            self.precio_promedio_semana = None
+
+    def obtener_precio_actual(self):
+        try:
+            ticker = yf.Ticker(self.symbol)
+            self.precio_actual = ticker.history(period='1d')['Close'].iloc[-1]
+        except Exception as e:
+            print(f"Error al obtener el precio actual para {self.symbol}: {e}")
+            self.precio_actual = None
+
+    def comparar_precios(self):
+        if self.precio_promedio_semana is not None and self.precio_actual is not None:
+            if self.precio_actual < self.precio_promedio_semana:
+                porcentaje_diferencia = ((self.precio_promedio_semana - self.precio_actual) / self.precio_promedio_semana) * 100
+                return [self.symbol, self.precio_actual, self.precio_promedio_semana, f"{porcentaje_diferencia:.2f}%"]
+        return None
+
+class GestorAcciones:
+    def __init__(self, symbols):
+        self.acciones = [Accion(symbol) for symbol in symbols]
+
+    def procesar_acciones(self):
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        resultados = []
+
+        for accion in self.acciones:
+            accion.obtener_datos_diarios(start_date, end_date)
+            accion.calcular_precio_promedio()
+            accion.obtener_precio_actual()
+            resultado = accion.comparar_precios()
+            if resultado:
+                resultados.append(resultado)
+
+        return resultados
+
+def main():
+    symbols = ['AGRO.BA', 'ALUA.BA', 'AUSO.BA', 'BBAR.BA', 'BHIP.BA', 'BMA.BA', 'BOLT.BA', 'BPAT.BA', 'BYMA.BA', 'CADO.BA',
+                'CAPX.BA', 'CARC.BA', 'CECO2.BA', 'CELU.BA', 'CEPU.BA', 'CGPA2.BA', 'COME.BA', 'CRES.BA', 'CVH.BA', 'CTIO.BA',
+                'DGCU2.BA', 'DOME.BA', 'DYCA.BA', 'EDN.BA', 'FERR.BA', 'FIPL.BA', 'GAMI.BA', 'GARO.BA', 'GBAN.BA', 'GCDI.BA',
+                'GCLA.BA', 'GGAL.BA', 'GRIM.BA', 'HARG.BA', 'HAVA.BA', 'INTR.BA', 'INVJ.BA', 'IRSA.BA', 'LEDE.BA', 'LONG.BA',
+                'LOMA.BA', 'METR.BA', 'MIRG.BA', 'MOLA.BA', 'MOLI.BA', 'MORI.BA', 'OEST.BA', 'PAMP.BA', 'PATA.BA', 'POLL.BA',
+                'RIGO.BA', 'ROSE.BA', 'SAMI.BA', 'SEMI.BA', 'SUPV.BA', 'Teco2.BA', 'TGNO4.BA', 'TGSU2.BA', 'TRAN.BA',
+                'TXAR.BA', 'VALO.BA', 'YPFD.BA']
+
+    gestor_acciones = GestorAcciones(symbols)
+    resultados = gestor_acciones.procesar_acciones()
+
+    if resultados:
+        headers = ["Símbolo", "Precio Actual", "Precio Promedio Semanal", "Porcentaje de Diferencia"]
+        print("\nAcciones por debajo del promedio:")
+        print(tabulate(resultados, headers=headers, tablefmt="grid"))
+
+        while True:
+            try:
+                porcentaje_adicional = float(input("\nIngrese un porcentaje adicional a la baja que le gustaría agregar a la lista: "))
+                break
+            except ValueError:
+                print("Por favor, ingrese un valor numérico.")
+
+        for resultado in resultados:
+            porcentaje_diferencia = float(resultado[3][:-1])
+            porcentaje_diferencia += porcentaje_adicional
+            resultado[3] = f"{porcentaje_diferencia:.2f}%"
+
+        print("\nAcciones por debajo del promedio y con el porcentaje adicional:")
+        print(tabulate(resultados, headers=headers, tablefmt="grid"))
+    else:
+        print("\nNo hay acciones por debajo del promedio esta semana.")
+
+if __name__ == "__main__":
+    main()
